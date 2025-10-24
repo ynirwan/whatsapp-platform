@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: whatsapp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: whatsapp_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: whatsapp_redis
+    restart: unless-stopped
+    ports:
+      - "6370:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+  # Node.js Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: whatsapp_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/whatsapp_platform
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - app-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: whatsapp_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # preserves container node_modules  
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
+
